@@ -1,10 +1,11 @@
 .DEFAULT_GOAL := run
 
 install:
-	@uv sync
+	@uv add -r requirements.txt
+	@[ -f data/vllm-0.10.1.zip ] && [ ! -d data/raw ] && unzip data/vllm-0.10.1.zip -d data/raw || true
 
-run:
-	@uv run python -m src index --max_chunk_size 1300 || true
+run: install
+	@uv run python -m src || true
 
 debug:
 	@uv run python -m pdb src || true
