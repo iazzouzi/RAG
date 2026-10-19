@@ -3,6 +3,7 @@
 install:
 	@uv add -r requirements.txt
 	@[ -f data/vllm-0.10.1.zip ] && [ ! -d data/raw ] && unzip data/vllm-0.10.1.zip -d data/raw || true
+	@mkdir -p data/processed
 
 run: install
 	@uv run python -m src || true

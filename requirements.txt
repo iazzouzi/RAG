@@ -1,1 +1,3 @@
 pydantic
+langchain_text_splitters
+fire
