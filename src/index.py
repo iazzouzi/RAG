@@ -6,28 +6,36 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
 class Index:
 
     def __init__(self, chunk_size: str):
+
         self.corpus_path = "data/raw"
 
-        self.py_splitter = RecursiveCharacterTextSplitter.from_language(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_size // 5,
-            language=Language.PYTHON,
-            add_start_index=True)
+        self.chunk_size = chunk_size
 
-        self.md_splitter = RecursiveCharacterTextSplitter.from_language(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_size // 5,
-            language=Language.MARKDOWN,
-            add_start_index=True)
+        self.chunk_overlap = chunk_size // 5
 
-        self.txt_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_size // 5,
-            add_start_index=True)
+        self.py_splitter = self._load_splitter(Language.PYTHON)
+
+        self.md_splitter = self._load_splitter(Language.MARKDOWN)
+
+        self.txt_splitter = self._load_splitter(None)
 
         self._load()
 
-    def file_chunker(self, file_path: Path) -> list[Chunk]:
+    def _load_splitter(self, language: Language) -> RecursiveCharacterTextSplitter:
+        if not language:
+            splitter = RecursiveCharacterTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                add_start_index=True)
+        else:
+            splitter = RecursiveCharacterTextSplitter.from_language(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                language=language,
+                add_start_index=True)
+        return splitter
+
+    def _file_chunker(self, file_path: Path) -> list[Chunk]:
         try:
             with open(file_path) as file:
                 text = file.read()
@@ -54,19 +62,11 @@ class Index:
         VALID_EXTENTIONS = {".py", ".md", ".txt"}
         chunks: list[Chunk] = []
         for file_path in Path(self.corpus_path).rglob("*"):
-            if file_path.is_file and file_path.suffix.lower() in VALID_EXTENTIONS:
-                chunks.extend(self.file_chunker(file_path))
+            if file_path.is_file() and file_path.suffix.lower() in VALID_EXTENTIONS:
+                chunks.extend(self._file_chunker(file_path))
         try:
             with open("data/processed/chunks.json", 'w') as file:
                 json.dump([chunk.model_dump() for chunk in chunks], file, indent=4)
         except IOError:
             raise SystemExit('Error')
         print(f"Ingestion complete! Indexed {len(chunks)} under data/processed/")
-            
-
-
-        
-                
-
-
-
