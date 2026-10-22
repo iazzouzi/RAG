@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := run
 
 install:
-	@uv add -r requirements.txt
+	@uv sync
 	@[ -f data/vllm-0.10.1.zip ] && [ ! -d data/raw ] && unzip data/vllm-0.10.1.zip -d data/raw || true
 	@mkdir -p data/processed
 
