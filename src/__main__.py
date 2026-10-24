@@ -1,6 +1,6 @@
 from .index import Index
 from .retrieval import HybridRetriever
-from .models import RagDataset, MinimalSearchResults, StudentSearchResults
+from .models import RagDataset, MinimalSearchResults, StudentSearchResults, MinimalAnswer, StudentSearchResultsAndAnswer
 from fire import Fire
 from pathlib import Path
 from pydantic import ValidationError
@@ -60,6 +60,37 @@ class RAG:
         llm = LLM()
         answer = llm.generate(query, contexts)
         print(answer)
+
+    @staticmethod
+    def answer_dataset(student_search_results_path: str, save_directory: str):
+        try:
+            search_results = StudentSearchResults.model_validate_json(Path(student_search_results_path).read_text())
+        except (ValidationError, OSError) as e:
+            raise SystemExit(e)
+        retriever = HybridRetriever()
+        llm = LLM()
+        answers = []
+        k = search_results.k
+        for res in tqdm(search_results.search_results, desc="Answering"):
+            sources = retriever.hybrid_retrieval(res.question, k)
+            contexts = []
+            for source in sources:
+                first_idx = source.first_character_index
+                last_idx = source.last_character_index
+                with open(source.file_path) as file:
+                    contexts.append(file.read()[first_idx:last_idx+1])
+            answer = llm.generate(res.question, contexts)
+            answers.append(MinimalAnswer(
+                question_id=res.question_id,
+                question=res.question,
+                retrieved_sources=res.retrieved_sources,
+                answer=answer
+            ))
+        out = Path(save_directory); out.mkdir(parents=True, exist_ok=True)
+        file = out / Path(student_search_results_path).name
+        file.write_text(
+            StudentSearchResultsAndAnswer(search_results=answers, k=k).model_dump_json(indent=2))
+        print(f"Saved student_search_results_and_answer to {file}")
 
 try:
     Fire(RAG)
