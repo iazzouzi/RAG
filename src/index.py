@@ -1,4 +1,4 @@
-import tqdm
+from tqdm import tqdm
 import json
 import bm25s
 import Stemmer
@@ -6,10 +6,11 @@ import chromadb
 from pathlib import Path
 from .models import Chunk
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
+from sentence_transformers import SentenceTransformer
 
 class Index:
 
-    def __init__(self, chunk_size: str):
+    def __init__(self, chunk_size: int):
 
         self.corpus_path = "data/raw"
 
@@ -43,9 +44,9 @@ class Index:
 
     def _file_chunker(self, file_path: Path) -> list[Chunk]:
         try:
-            with open(file_path) as file:
+            with open(file_path, encoding="utf-8", newline="") as file:
                 text = file.read()
-        except IOError:
+        except OSError:
             return []
         ext = file_path.suffix.lower()
         ext_map = {
@@ -73,9 +74,13 @@ class Index:
 
     def _chroma_index(self, corpus: list[str]):
         client = chromadb.PersistentClient(path=f"{self.save_dir}/chroma")
+        try:
+            client.delete_collection("chroma")
+        except Exception:
+            pass
         collection = client.get_or_create_collection("chroma")
-        BATCH_SIZE = 100
-        for i in tqdm.tqdm(range(0, len(corpus), BATCH_SIZE), desc="Chromadb indexing"):
+        BATCH_SIZE = 256
+        for i in tqdm(range(0, len(corpus), BATCH_SIZE), desc="Chromadb indexing"):
             batch = corpus[i: i + BATCH_SIZE]
             collection.upsert(
                 ids=[str(i + j) for j in range(len(batch))],

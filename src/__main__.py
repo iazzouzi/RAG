@@ -4,7 +4,6 @@ from .models import RagDataset, MinimalSearchResults, StudentSearchResults, Mini
 from fire import Fire
 from pathlib import Path
 from pydantic import ValidationError
-import json
 from tqdm import tqdm
 from .llm import LLM
 
@@ -55,8 +54,8 @@ class RAG:
         for source in sources:
             first_idx = source.first_character_index
             last_idx = source.last_character_index
-            with open(source.file_path) as file:
-                contexts.append(file.read()[first_idx:last_idx+1])
+            with open(source.file_path, encoding="utf-8", newline="") as file:
+                contexts.append(file.read()[first_idx:last_idx])
         llm = LLM()
         answer = llm.generate(query, contexts)
         print(answer)
@@ -67,18 +66,16 @@ class RAG:
             search_results = StudentSearchResults.model_validate_json(Path(student_search_results_path).read_text())
         except (ValidationError, OSError) as e:
             raise SystemExit(e)
-        retriever = HybridRetriever()
         llm = LLM()
         answers = []
         k = search_results.k
         for res in tqdm(search_results.search_results, desc="Answering"):
-            sources = retriever.hybrid_retrieval(res.question, k)
             contexts = []
-            for source in sources:
+            for source in res.retrieved_sources:
                 first_idx = source.first_character_index
                 last_idx = source.last_character_index
-                with open(source.file_path) as file:
-                    contexts.append(file.read()[first_idx:last_idx+1])
+                with open(source.file_path, encoding="utf-8", newline="") as file:
+                    contexts.append(file.read()[first_idx:last_idx])
             answer = llm.generate(res.question, contexts)
             answers.append(MinimalAnswer(
                 question_id=res.question_id,
