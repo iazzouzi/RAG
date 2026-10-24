@@ -50,7 +50,7 @@ class HybridRetriever:
                 rrf_scores[chunk_id] = 1.0 / k + rank
         return [item[0] for item in sorted(rrf_scores.items(), key= lambda item: item[1], reverse=True)]
 
-    def _hybrid_retrieval(self, query: str, top_k: int) -> list[MinimalSource]:
+    def hybrid_retrieval(self, query: str, top_k: int) -> list[MinimalSource]:
         bm25_ranking = self._bm25_retrieval(query, top_k)
         chroma_ranking = self._chroma_retrieval(query, top_k)
         sources: list[MinimalSource] = []
