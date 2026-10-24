@@ -6,6 +6,7 @@ from pathlib import Path
 from pydantic import ValidationError
 import json
 from tqdm import tqdm
+from .llm import LLM
 
 class RAG:
     @staticmethod
@@ -46,5 +47,22 @@ class RAG:
             StudentSearchResults(search_results=results, k=k).model_dump_json(indent=2))
         print(f"Saved student_search_results to {file}")
 
-Fire(RAG)
+    @staticmethod
+    def answer(query: str, k: int):
+        retriever = HybridRetriever()
+        sources = retriever.hybrid_retrieval(query, k)
+        contexts = []
+        for source in sources:
+            first_idx = source.first_character_index
+            last_idx = source.last_character_index
+            with open(source.file_path) as file:
+                contexts.append(file.read()[first_idx:last_idx+1])
+        llm = LLM()
+        answer = llm.generate(query, contexts)
+        print(answer)
+
+try:
+    Fire(RAG)
+except BaseException as e:
+    print(f'Error: {e}')
 

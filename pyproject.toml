@@ -10,7 +10,9 @@ dependencies = [
     "langchain-text-splitters>=1.1.3",
     "pydantic>=2.14.1",
     "bm25s[full]",
-    "pystemmer>=2.1.1"
+    "pystemmer>=2.1.1",
+    "torch>=2.7.1",
+    "transformers>=4.34.0",
 ]
 
 [tool.uv.sources]
