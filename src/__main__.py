@@ -10,7 +10,7 @@ from .llm import LLM
 class RAG:
     @staticmethod
     def index(max_chunk_size: int):
-        if max_chunk_size > 2000 or max_chunk_size < 100:
+        if max_chunk_size > 2000 or max_chunk_size < 200:
             raise SystemExit('Error') 
         Index(chunk_size=max_chunk_size)
 
@@ -89,8 +89,4 @@ class RAG:
             StudentSearchResultsAndAnswer(search_results=answers, k=k).model_dump_json(indent=2))
         print(f"Saved student_search_results_and_answer to {file}")
 
-try:
-    Fire(RAG)
-except BaseException as e:
-    print(f'Error: {e}')
-
+Fire(RAG)

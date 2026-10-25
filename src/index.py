@@ -2,7 +2,7 @@ from tqdm import tqdm
 import json
 import bm25s
 import Stemmer
-import chromadb
+import faiss
 from pathlib import Path
 from .models import Chunk
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
@@ -18,8 +18,6 @@ class Index:
 
         self.chunk_size = chunk_size
 
-        self.chunk_overlap = chunk_size // 5
-
         self.py_splitter = self._load_splitter(Language.PYTHON)
 
         self.md_splitter = self._load_splitter(Language.MARKDOWN)
@@ -32,12 +30,10 @@ class Index:
         if not language:
             splitter = RecursiveCharacterTextSplitter(
                 chunk_size=self.chunk_size,
-                chunk_overlap=self.chunk_overlap,
                 add_start_index=True)
         else:
             splitter = RecursiveCharacterTextSplitter.from_language(
                 chunk_size=self.chunk_size,
-                chunk_overlap=self.chunk_overlap,
                 language=language,
                 add_start_index=True)
         return splitter
@@ -72,19 +68,13 @@ class Index:
         retriever.index(corpus_tokens)
         retriever.save(f"{self.save_dir}/bm25")
 
-    def _chroma_index(self, corpus: list[str]):
-        client = chromadb.PersistentClient(path=f"{self.save_dir}/chroma")
-        try:
-            client.delete_collection("chroma")
-        except Exception:
-            pass
-        collection = client.get_or_create_collection("chroma")
-        BATCH_SIZE = 256
-        for i in tqdm(range(0, len(corpus), BATCH_SIZE), desc="Chromadb indexing"):
-            batch = corpus[i: i + BATCH_SIZE]
-            collection.upsert(
-                ids=[str(i + j) for j in range(len(batch))],
-                documents=batch)
+    def _faiss_index(self, corpus: list[str]):
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        emb = model.encode(
+            corpus, show_progress_bar=True)
+        index = faiss.IndexFlatIP(emb.shape[1])
+        index.add(emb)
+        faiss.write_index(index, f'{self.save_dir}/faiss')
 
     def _load(self) -> None:
         VALID_EXTENTIONS = {".py", ".md", ".txt"}
@@ -99,5 +89,5 @@ class Index:
             raise SystemExit('Error')
         corpus = [chunk.text for chunk in chunks]
         self._bm25_index(corpus)
-        self._chroma_index(corpus)
+        self._faiss_index(corpus)
         print(f"Ingestion complete! Indexed {len(chunks)} under {self.save_dir}")
