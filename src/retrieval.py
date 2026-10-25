@@ -40,20 +40,20 @@ class HybridRetriever:
     def _faiss_retrieval(self, query: str, top_k: int) -> list[str]:
         q_emb = self.model.encode([query])
         _, ids = self.faiss_retriever.search(q_emb, top_k)
-        return [str(i) for i in ids[0]]
+        return [str(i) for i in ids[0] if i != -1]
 
-    def reciprocal_rank_fusion(self, bm25_ranking: list[str], faiss_ranking: list[str], k: int = 60) -> list[str]:
+    def reciprocal_rank_fusion(self, bm25_rank: list[str], faiss_rank: list[str]) -> list[str]:
         scores: dict[str, float] = {}
-        for ranking in (bm25_ranking, faiss_ranking):
-            for rank, chunk_id in enumerate(ranking, start=1):
-                scores[chunk_id] = scores.get(chunk_id, 0.0) + 1.0 / (k + rank)
+        for rank, w in ((bm25_rank, 2.0), (faiss_rank, 1.0)):
+            for r, cid in enumerate(rank, start=1):
+                scores[cid] = scores.get(cid, 0.0) + w / (10 + r)
         return sorted(scores, key=lambda c: scores[c], reverse=True)
 
     def hybrid_retrieval(self, query: str, top_k: int) -> list[MinimalSource]:
-        bm25_ranking = self._bm25_retrieval(query, top_k*3)
-        faiss_ranking = self._faiss_retrieval(query, top_k*3)
+        bm25_rank = self._bm25_retrieval(query, top_k*10)
+        faiss_rank = self._faiss_retrieval(query, top_k*10)
         sources: list[MinimalSource] = []
-        for id in self.reciprocal_rank_fusion(bm25_ranking, faiss_ranking)[:top_k]:
+        for id in self.reciprocal_rank_fusion(bm25_rank, faiss_rank)[:top_k]:
             chunk = self.chunks[int(id)]
             sources.append(MinimalSource(
                 file_path=chunk['file_path'],
