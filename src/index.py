@@ -71,7 +71,7 @@ class Index:
     def _faiss_index(self, corpus: list[str]):
         model = SentenceTransformer('all-MiniLM-L6-v2')
         emb = model.encode(
-            corpus, show_progress_bar=True)
+            corpus, batch_size=64, show_progress_bar=True)
         index = faiss.IndexFlatIP(emb.shape[1])
         index.add(emb)
         faiss.write_index(index, f'{self.save_dir}/faiss')
@@ -87,7 +87,7 @@ class Index:
                 json.dump([chunk.model_dump() for chunk in chunks], file, indent=2)
         except IOError:
             raise SystemExit('Error')
-        corpus = [chunk.text for chunk in chunks]
+        corpus = [f"{c.file_path}\n{c.text}" for c in chunks]
         self._bm25_index(corpus)
         self._faiss_index(corpus)
         print(f"Ingestion complete! Indexed {len(chunks)} under {self.save_dir}")
