@@ -89,4 +89,35 @@ class RAG:
             StudentSearchResultsAndAnswer(search_results=answers, k=k).model_dump_json(indent=2))
         print(f"Saved student_search_results_and_answer to {file}")
 
+    @staticmethod
+    def evaluate(student_search_results_path: str, dataset_path: str):
+        try:
+            dataset = RagDataset.model_validate_json(Path(dataset_path).read_text())
+            search_results = StudentSearchResults.model_validate_json(Path(student_search_results_path).read_text())
+        except Exception as e:
+            raise SystemExit(e)
+
+        def iou(s1: int, e1: int, s2: int, e2: int) -> float:
+            inter = max(0, min(e1, e2) - max(s1, s2))
+            union = (e1 - s1) + (e2 - s2) - inter
+            return inter / union if union > 0 else 0.0
+
+        retrieved_map = {q.question_id: q.retrieved_sources for q in search_results.search_results}
+        for k in (1, 3, 5, 10):
+            q_counter = 0
+            total_scores = 0.0
+            for q in dataset.rag_questions:
+                found = 0
+                for q_src in q.sources:
+                    for r_src in retrieved_map[q.question_id][:k]:
+                        s1 = r_src.first_character_index; e1 = r_src.last_character_index
+                        s2 = q_src.first_character_index; e2 = q_src.last_character_index
+                        if r_src.file_path == q_src.file_path and iou(s1, e1, s2, e2) >= 0.05:
+                            found += 1
+                            break
+                total_scores += found / len(q.sources)
+                q_counter += 1
+            recall = total_scores / q_counter
+            print(f"Recall@{k}: {recall} ({(recall*100):.1f}%)")
+
 Fire(RAG)
